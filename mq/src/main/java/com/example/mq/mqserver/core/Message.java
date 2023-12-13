@@ -8,4 +8,6 @@ package com.example.mq.mqserver.core;
  * Time: 22:19
  */
 public class Message {
+    private  BasicProperties basicProperties;
+    private byte[] body;
 }
