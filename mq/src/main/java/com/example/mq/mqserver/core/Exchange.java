@@ -20,6 +20,7 @@ public class Exchange {
     //如果当前交换机没人使用，就会自动删除(RabbitMQ有，但项目里没有实现，作为保留)
     private boolean autoDelete = false;
     //arguments指创建交换机时指定的额外的参数选项(RabbitMQ有，但项目里没有实现，作为保留)git
+    //为了把这个arguments存到数据库中，需要把Map转成json格式的字符串
     private Map<String,Object> arguments = new HashMap<>();
 
 

@@ -14,5 +14,6 @@ import org.apache.ibatis.annotations.Mapper;
 public interface MetaMapper {
     //提供3个核心建表方法
     void createExchangeTable();
-
+    void createQueueTable();
+    void createBindingTable();
 }
