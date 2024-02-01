@@ -8,6 +8,24 @@
             durable boolean,
             autoDelete boolean,
             arguments varchar(1024)
-        )
+        );
+    </update>
+
+    <update id="createQueueTable" >
+        create table if not exists queue(
+          name varchar(50) primary key,
+          durable boolean,
+          exclusive boolean,
+          autoDelete boolean,
+          arguments varchar(1024)
+        );
+    </update>
+
+    <update id="createBindingTable">
+        create table if not exists binding(
+            exchangeName varchar(50),
+            queueName varchar(50),
+            bindingKey varchar(256)
+        );
     </update>
 </mapper>
