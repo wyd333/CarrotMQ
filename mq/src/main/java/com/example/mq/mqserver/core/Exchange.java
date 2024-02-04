@@ -1,5 +1,9 @@
 package com.example.mq.mqserver.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,11 +60,35 @@ public class Exchange {
         this.autoDelete = autoDelete;
     }
 
-    public Map<String, Object> getArguments() {
-        return arguments;
+    /**
+     * 把当前的arguments参数从Map转成String(JSON)；
+     * 若代码出现异常，则返回空的json字符串。
+     * @return
+     */
+    public String getArguments() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.writeValueAsString(arguments);
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        return "{}";
     }
 
-    public void setArguments(Map<String, Object> arguments) {
-        this.arguments = arguments;
+    /**
+     * 把参数argumentsJson按照json格式解析，转成Map对象；
+     * 从数据库读取数据后构造Exchange对象时自动调用。
+     * @param argumentsJson 从数据库中读取到的json字符串
+     */
+    public void setArguments(String argumentsJson) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            // 第二个参数用来描述当前的json字符串要转换成的java对象是什么类型的。
+            // 如果是简单类型，直接使用对应类型的类对象；
+            // 如果是集合类型这样的复杂类型，可以使用TypeReference匿名内部类对象来描述复杂类型的具体信息（通过泛型来描述）。
+            this.arguments = objectMapper.readValue(argumentsJson, new TypeReference<HashMap<String, Object>>() {});
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
     }
 }
