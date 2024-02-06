@@ -28,4 +28,34 @@
             bindingKey varchar(256)
         );
     </update>
+
+    <insert id="insertExchange" parameterType="com.example.mq.mqserver.core.Exchange">
+        insert into exchange values(
+            #{name},#{type},#{durable},#{autoDelete},#{arguments}
+        );
+    </insert>
+
+    <delete id="deleteExchange" parameterType="java.lang.String">
+        delete from exchange where name = #{exchangeName};
+    </delete>
+
+    <insert id="insertQueue" parameterType="com.example.mq.mqserver.core.MSGQueue">
+        insert into queue values (
+            #{name},#{durable},#{exclusive},#{autoDelete},#{arguments}
+        );
+    </insert>
+
+    <delete id="deleteQueue" parameterType="java.lang.String">
+        delete from queue where name = #{queueName};
+    </delete>
+
+    <insert id="insertBinding" parameterType="com.example.mq.mqserver.core.Binding">
+        insert into binding values(
+            #{exchangeName},#{queueName},#{bindingKey}
+        );
+    </insert>
+
+    <delete id="deleteBinding" parameterType="com.example.mq.mqserver.core.Binding">
+        delete from binding where exchangeName = #{exchangeName} and queueName = #{queueName}
+    </delete>
 </mapper>
