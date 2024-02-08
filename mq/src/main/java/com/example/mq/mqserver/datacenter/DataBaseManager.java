@@ -1,11 +1,14 @@
 package com.example.mq.mqserver.datacenter;
 
 import com.example.mq.MqApplication;
+import com.example.mq.mqserver.core.Binding;
 import com.example.mq.mqserver.core.Exchange;
 import com.example.mq.mqserver.core.ExchangeType;
+import com.example.mq.mqserver.core.MSGQueue;
 import com.example.mq.mqserver.mapper.MetaMapper;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -71,5 +74,45 @@ public class DataBaseManager {
         exchange.setAutoDelete(false);
         metaMapper.insertExchange(exchange);
         System.out.println("[DataBaseManager] 创建初始数据完成！");
+    }
+
+    // 封装其他的数据库操作
+    public void insertExchange(Exchange exchange) {
+        metaMapper.insertExchange(exchange);
+    }
+
+    public List<Exchange> selectAllExchanges() {
+        return metaMapper.selectAllExchanges();
+    }
+
+
+    public void deleteExchange(String exchangeName) {
+        metaMapper.deleteExchange(exchangeName);
+    }
+
+    public void insertQueue(MSGQueue queue) {
+        metaMapper.insertQueue(queue);
+    }
+
+    public List<MSGQueue> selectAllQueues() {
+        return metaMapper.selectAllQueues();
+    }
+
+
+    public void deleteQueue(String queueName) {
+        metaMapper.deleteQueue(queueName);
+    }
+
+    public void insertBinding(Binding binding) {
+        metaMapper.insertBinding(binding);
+    }
+
+    public List<Binding> selectAllBindings() {
+        return metaMapper.selectAllBindings();
+    }
+
+
+    public void deleteBinding(Binding binding) {
+        metaMapper.deleteBinding(binding);
     }
 }

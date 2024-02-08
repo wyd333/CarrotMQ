@@ -35,6 +35,10 @@
         );
     </insert>
 
+    <select id="selectAllExchanges" resultType="com.example.mq.mqserver.core.Exchange">
+        select * from exchange;
+    </select>
+
     <delete id="deleteExchange" parameterType="java.lang.String">
         delete from exchange where name = #{exchangeName};
     </delete>
@@ -45,6 +49,10 @@
         );
     </insert>
 
+    <select id="selectAllQueues" resultType="com.example.mq.mqserver.core.MSGQueue">
+        select * from queue;
+    </select>
+
     <delete id="deleteQueue" parameterType="java.lang.String">
         delete from queue where name = #{queueName};
     </delete>
@@ -54,6 +62,10 @@
             #{exchangeName},#{queueName},#{bindingKey}
         );
     </insert>
+
+    <select id="selectAllBindings" resultType="com.example.mq.mqserver.core.Binding">
+        select * from binding;
+    </select>
 
     <delete id="deleteBinding" parameterType="com.example.mq.mqserver.core.Binding">
         delete from binding where exchangeName = #{exchangeName} and queueName = #{queueName}
