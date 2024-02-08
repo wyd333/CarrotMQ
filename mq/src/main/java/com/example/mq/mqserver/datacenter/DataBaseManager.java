@@ -1,5 +1,6 @@
 package com.example.mq.mqserver.datacenter;
 
+import com.example.mq.MqApplication;
 import com.example.mq.mqserver.core.Exchange;
 import com.example.mq.mqserver.core.ExchangeType;
 import com.example.mq.mqserver.mapper.MetaMapper;
@@ -14,12 +15,15 @@ import java.io.File;
  * Time: 21:50
  */
 public class DataBaseManager {
+    // 要从 Spring 中拿到现成的对象
     private MetaMapper metaMapper;
 
     /**
      * 针对数据库进行初始化
      */
     public void init(){
+        // 手动获取到 MetaMapper 对象
+        metaMapper = MqApplication.context.getBean(MetaMapper.class);
         if(!checkDBExists()){
             // 如果数据库不存在，则进行建库建表操作
             // 创建数据表
