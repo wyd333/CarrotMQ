@@ -41,6 +41,15 @@ public class DataBaseManager {
 
     }
 
+    public void deleteDB(){
+        File file = new File("./data/meta.db");
+        if(file.delete()){
+            System.out.println("[DataBaseManager] 删除数据库文件成功！");
+        }else{
+            System.out.println("[DataBaseManager] 删除数据库文件失败！");
+        }
+    }
+
 
     private boolean checkDBExists() {
         File file = new File("./data/meta.db");
