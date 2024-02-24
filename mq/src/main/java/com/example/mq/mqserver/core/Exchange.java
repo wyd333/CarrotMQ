@@ -18,11 +18,13 @@ public class Exchange {
     //使用name作为交换机的身份标识，唯一
     private String name;
     //交换机的类型 DIRECT FANOUT TOPIC
-    private ExchangeType exchangeType = ExchangeType.DIRECT;
+    private ExchangeType type = ExchangeType.DIRECT;
     //该交换机是否要持久化存储，true-需要，false-不需要
     private boolean durable = false;
+
     //如果当前交换机没人使用，就会自动删除(RabbitMQ有，但项目里没有实现，作为保留)
     private boolean autoDelete = false;
+
     //arguments指创建交换机时指定的额外的参数选项(RabbitMQ有，但项目里没有实现，作为保留)git
     //为了把这个arguments存到数据库中，需要把Map转成json格式的字符串
     private Map<String,Object> arguments = new HashMap<>();
@@ -36,12 +38,12 @@ public class Exchange {
         this.name = name;
     }
 
-    public ExchangeType getExchangeType() {
-        return exchangeType;
+    public ExchangeType getType() {
+        return type;
     }
 
-    public void setExchangeType(ExchangeType exchangeType) {
-        this.exchangeType = exchangeType;
+    public void setType(ExchangeType exchangeType) {
+        this.type = exchangeType;
     }
 
     public boolean isDurable() {
@@ -63,6 +65,7 @@ public class Exchange {
     /**
      * 把当前的arguments参数从Map转成String(JSON)；
      * 若代码出现异常，则返回空的json字符串。
+     * 这里的getter和setter用于和数据库交互使用
      * @return
      */
     public String getArguments() {
@@ -90,5 +93,17 @@ public class Exchange {
         } catch (JsonProcessingException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 针对arguments再提供一组getter和setter，用来更方便地获取/设置键值对
+     * 测试时使用
+     */
+    public Object getArguments(String key) {
+        return arguments.get(key);
+    }
+
+    public void setArguments(String key, Object value){
+        arguments.put(key, value);
     }
 }

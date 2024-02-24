@@ -89,4 +89,12 @@ public class MSGQueue {
             e.printStackTrace();
         }
     }
+
+    public Object getArguments(String key) {
+        return arguments.get(key);
+    }
+
+    public void setArguments(String key, Object value){
+        arguments.put(key, value);
+    }
 }

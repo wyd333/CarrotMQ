@@ -29,6 +29,9 @@ public class DataBaseManager {
         metaMapper = MqApplication.context.getBean(MetaMapper.class);
         if(!checkDBExists()){
             // 如果数据库不存在，则进行建库建表操作
+            // 先创建一个data目录
+            File dataDir = new File("./data");
+            dataDir.mkdirs();
             // 创建数据表
             createTable();
             // 插入默认数据
@@ -43,10 +46,20 @@ public class DataBaseManager {
 
     public void deleteDB(){
         File file = new File("./data/meta.db");
-        if(file.delete()){
+        boolean ret = file.delete();
+        if(ret){
             System.out.println("[DataBaseManager] 删除数据库文件成功！");
         }else{
             System.out.println("[DataBaseManager] 删除数据库文件失败！");
+        }
+
+        File dataDir = new File("./data");
+        // 使用delete删除目录时必须先保证目录内是空的
+        ret = dataDir.delete();
+        if(ret){
+            System.out.println("[DataBaseManager] 删除数据库目录成功！");
+        }else{
+            System.out.println("[DataBaseManager] 删除数据库目录失败！");
         }
     }
 
@@ -78,7 +91,7 @@ public class DataBaseManager {
         // 构造一个默认的交换机
         Exchange exchange = new Exchange();
         exchange.setName("");
-        exchange.setExchangeType(ExchangeType.DIRECT);
+        exchange.setType(ExchangeType.DIRECT);
         exchange.setDurable(true);
         exchange.setAutoDelete(false);
         metaMapper.insertExchange(exchange);
