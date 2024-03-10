@@ -73,4 +73,39 @@ public class MessageFileManager {
             e.printStackTrace();
         }
     }
+
+    public void createQueueFiles(String queueName) throws IOException {
+        //1、先创建队列对应的消息目录
+        File baseDir = new File(getQueueDir(queueName));
+        if(!baseDir.exists()) {
+            // 不存在就创建目录
+            boolean ok = baseDir.mkdirs();
+            if(!ok) {
+                throw new IOException("创建目录失败！baseDir = " + baseDir.getAbsolutePath());
+            }
+        }
+
+        //2、创建队列数据文件
+        File queueDataFile = new File(getQueueDataPath(queueName));
+        if(!queueDataFile.exists()) {
+            boolean ok = queueDataFile.createNewFile();
+            if(!ok) {
+                throw new IOException("创建文件失败！queueDataFile = " + queueDataFile.getAbsolutePath());
+            }
+        }
+        //3、创建消息统计文件
+        File queueStatFile = new File(getQueueStatPath(queueName));
+        if(!queueStatFile.exists()) {
+            boolean ok = queueStatFile.createNewFile();
+            if(!ok) {
+                throw new IOException("创建文件失败！queueStatFile = " + queueStatFile.getAbsolutePath());
+            }
+        }
+        //4、给消息统计文件设定初始值：0\t0
+        Stat stat = new Stat();
+        stat.totalCount = 0;
+        stat.validCount = 0;
+        writeStat(queueName, stat);
+
+    }
 }
