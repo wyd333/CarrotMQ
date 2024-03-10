@@ -74,6 +74,11 @@ public class MessageFileManager {
         }
     }
 
+    /**
+     * 创建消息目录和文件
+     * @param queueName
+     * @throws IOException
+     */
     public void createQueueFiles(String queueName) throws IOException {
         //1、先创建队列对应的消息目录
         File baseDir = new File(getQueueDir(queueName));
@@ -106,6 +111,43 @@ public class MessageFileManager {
         stat.totalCount = 0;
         stat.validCount = 0;
         writeStat(queueName, stat);
+    }
 
+    /**
+     * 删除消息的目录和文件
+     * 队列是可以删除的，当队列被删除后，对应的消息文件等也要随之删除
+     * @param queueName
+     */
+    public void destroyQueueFiles(String queueName) throws IOException {
+        // 删除里面的文件再删除目录
+        File queueDataFile = new File(getQueueDataPath(queueName));
+        boolean ok1 = queueDataFile.delete();
+        File queueStatFile = new File(getQueueStatPath(queueName));
+        boolean ok2 = queueStatFile.delete();
+        File baseDir = new File(getQueueDir(queueName));
+        boolean ok3 = baseDir.delete();
+        if(!ok1 || !ok2 || !ok3) {
+            // 有任意一个删除失败 -> 整体删除失败
+            throw new IOException("删除目录和文件失败！baseDir = " + baseDir.getAbsolutePath());
+        }
+    }
+
+    /**
+     * 检查队列的目录和文件是否存在
+     * 后续有生产者给block server生产消息，这个消息可能需要记录到文件上。这取决于这个消息是否需要持久化。
+     * @param queueName
+     * @return
+     */
+    public boolean checkFilesExists(String queueName) {
+        // 判定队列的数据文件和统计文件是否都存在
+        File queueDataFile = new File(getQueueDataPath(queueName));
+        if(!queueDataFile.exists()) {
+            return false;
+        }
+        File queueStatFile = new File(getQueueStatPath(queueName));
+        if(!queueStatFile.exists()) {
+            return false;
+        }
+        return true;
     }
 }
