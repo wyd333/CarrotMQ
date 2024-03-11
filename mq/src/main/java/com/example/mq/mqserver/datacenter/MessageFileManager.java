@@ -1,5 +1,10 @@
 package com.example.mq.mqserver.datacenter;
 
+import com.example.mq.common.BinaryTool;
+import com.example.mq.common.MqException;
+import com.example.mq.mqserver.core.MSGQueue;
+import com.example.mq.mqserver.core.Message;
+
 import java.io.*;
 import java.util.Scanner;
 
@@ -145,9 +150,23 @@ public class MessageFileManager {
             return false;
         }
         File queueStatFile = new File(getQueueStatPath(queueName));
-        if(!queueStatFile.exists()) {
-            return false;
+        return queueStatFile.exists();
+    }
+
+
+    /**
+     * 把一个新的消息放入到队列对应的文件中
+     * @param queue 表示要把消息写入的队列
+     * @param message 要写的消息
+     */
+    public void sendMessage(MSGQueue queue, Message message) throws MqException, IOException {
+        // 1-检查当前要写入的队列对应的文件是否存在
+        if(!checkFilesExists(queue.getName())) {
+            throw new MqException("[MessageFileManager] 队列对应的文件不存在！queueName = " + queue.getName());
         }
-        return true;
+        // 2-把Message对象进行序列化，转成二进制字节数组
+        byte[] messageBinary = BinaryTool.toBytes(message);
+        // 3-获取到当前队列数据文件的长度，以此计算该Message对象的offsetBeg和offsetEnd
+        // 把新的Message数据写入队列数据文件的末尾，此时Message对象的offsetBeg就是当前文件长度+4，offsetEnd就是当前文件长度+4+message自身长度
     }
 }
