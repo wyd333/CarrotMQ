@@ -168,5 +168,23 @@ public class MessageFileManager {
         byte[] messageBinary = BinaryTool.toBytes(message);
         // 3-获取到当前队列数据文件的长度，以此计算该Message对象的offsetBeg和offsetEnd
         // 把新的Message数据写入队列数据文件的末尾，此时Message对象的offsetBeg就是当前文件长度+4，offsetEnd就是当前文件长度+4+message自身长度
+        File queueDataFile = new File(getQueueDataPath(queue.getName()));
+        // queueDataFile.length() 获取到文件的长度，以字节为单位
+        message.setOffsetBeg(queueDataFile.length() + 4);
+        message.setOffsetEnd(queueDataFile.length() + 4 + messageBinary.length);
+        // 4-写入消息到数据文件，追加写
+        try (OutputStream outputStream = new FileOutputStream(queueDataFile, true)) {
+            try (DataOutputStream dataOutputStream = new DataOutputStream(outputStream)) {
+                // 先写当前消息的长度，占据4个字节的
+                dataOutputStream.writeInt(messageBinary.length);    // 位运算的封装，以把4个字节的长度都写入
+                // 写入消息本体
+                dataOutputStream.write(messageBinary);  // 与约定的格式相同
+            }
+        }
+        // 5-更新消息统计文件
+        Stat stat = readStat(queue.getName());
+        stat.totalCount++;
+        stat.validCount++;
+        writeStat(queue.getName(), stat);
     }
 }
