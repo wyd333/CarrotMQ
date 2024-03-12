@@ -190,4 +190,31 @@ public class MessageFileManager {
             writeStat(queue.getName(), stat);
         }
     }
+
+    /**
+     * 删除消息
+     * 这里的删除是逻辑删除, 把 isValid 属性置 0
+     * 步骤: 把文件中的数据读出来, 还原回 Message 对象; 把 isValid 改为 0; 把数据写回文件
+     * @param queue
+     * @param message
+     */
+    public void deleteMessage(MSGQueue queue, Message message) throws IOException, ClassNotFoundException {
+        // FileInputStream是从文件头开始读写的, 但此处要求随机访问
+        // 内存/硬盘是支持随机访问的
+        // Java用RandomAccessFile类来随机访问
+        try (RandomAccessFile randomAccessFile = new RandomAccessFile(getQueueDataPath(queue.getName()), "rw")) {
+            // 1-先从文件中读取对应的 Message 数据
+            byte[] bufferSrc = new byte[(int) (message.getOffsetEnd() - message.getOffsetBeg())];
+            randomAccessFile.seek(message.getOffsetBeg());  // 移动光标
+            randomAccessFile.read(bufferSrc);
+            // 2-把当前读出来的二进制数据转换回 Message 对象
+            Message diskMessage = (Message) BinaryTool.fromBytes(bufferSrc);
+            // 3-把 isValid 设置为无效
+            diskMessage.setIsValid((byte) 0x0);
+            // 4-重新写入文件
+            byte[] bufferDest = BinaryTool.toBytes(diskMessage);
+            randomAccessFile.seek(message.getOffsetBeg());  //文件光标会随着读和写移动，此处重新调整光标
+            randomAccessFile.write(bufferDest);
+        }
+    }
 }
