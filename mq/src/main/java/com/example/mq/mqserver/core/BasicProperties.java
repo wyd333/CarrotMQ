@@ -1,5 +1,7 @@
 package com.example.mq.mqserver.core;
 
+import java.io.Serializable;
+
 /**
  * Created with IntelliJ IDEA.
  * Description: Message的一部分，保存了Message对象的重要属性
@@ -7,7 +9,7 @@ package com.example.mq.mqserver.core;
  * Date: 2023-12-13
  * Time: 20:54
  */
-public class BasicProperties {
+public class BasicProperties implements Serializable {
     //消息的唯一身份标识
     //此处为了保证id的唯一性，使用 UUID 来作为message id
     //UUID：编程中用来生成唯一id的算法

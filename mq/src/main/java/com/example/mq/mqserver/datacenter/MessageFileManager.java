@@ -51,13 +51,13 @@ public class MessageFileManager {
      * @return
      */
     private String getQueueStatPath(String queueName){
-        return getQueueDir(queueName) + "queue_stat.txt";
+        return getQueueDir(queueName) + "/queue_stat.txt";
     }
 
     private Stat readStat(String queueName) {
         // 消息统计文件是文本文件，可以直接使用 Scanner 来读取文件内容
         Stat stat = new Stat();
-        try (InputStream inputStream = new FileInputStream(getQueueDataPath(queueName))) {
+        try (InputStream inputStream = new FileInputStream(getQueueStatPath(queueName))) {
             Scanner scanner = new Scanner(inputStream);
             stat.totalCount = scanner.nextInt();
             stat.validCount = scanner.nextInt();

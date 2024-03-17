@@ -3,6 +3,7 @@ package com.example.mq.mqserver.core;
 import com.sun.org.apache.bcel.internal.generic.NEW;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.UUID;
 
 /**
@@ -26,6 +27,7 @@ public class Message implements Serializable {
     // 这两个属性是message最核心的部分
     private BasicProperties basicProperties = new BasicProperties();    // 消息属性
     private byte[] body;    // 消息正文
+
 
     // 辅助用的属性
     // Message后续会存储到文件中，如果持久化的话
@@ -119,5 +121,16 @@ public class Message implements Serializable {
 
     public void setIsValid(byte isValid) {
         this.isValid = isValid;
+    }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "basicProperties=" + basicProperties +
+                ", body=" + Arrays.toString(body) +
+                ", offsetBeg=" + offsetBeg +
+                ", offsetEnd=" + offsetEnd +
+                ", isValid=" + isValid +
+                '}';
     }
 }
