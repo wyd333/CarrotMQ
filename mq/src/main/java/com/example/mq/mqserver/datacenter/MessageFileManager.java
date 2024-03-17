@@ -276,4 +276,84 @@ public class MessageFileManager {
         }
         return messages;
     }
+
+    /**
+     * 检查当前是否要针对该队列的消息数据文件进行GC
+     * 条件判定：消息总数 > 2000 且 有效消息 / 总消息数 < 0.5
+     * @param queueName
+     * @return
+     */
+    public boolean checkGC(String queueName) {
+        // 判断是否要GC，是根据总消息数和有效消息数，这两个值都在消息统计文件中
+        Stat stat = readStat(queueName);
+        return stat.totalCount > 2000 && (double) stat.validCount / (double) stat.totalCount < 0.5;
+    }
+
+    public String getQueueDataNewPath(String queueName) {
+        return getQueueDir(queueName) + "/queue_data_new.txt";
+    }
+
+    /**
+     * 通过这个方法真正执行消息数据文件的垃圾回收操作
+     * 使用复制算法来完成，先创建一个新的文件，名字为 queue_data_new.txt
+     * 把之前消息数据文件中的有效数据都读出来，写到新的文件中；删除旧的文件，再把新的文件改名回 queue_data.txt
+     * 最后要更新消息统计文件
+     * @param queue 用作锁对象
+     */
+    public void gc(MSGQueue queue) throws MqException, IOException, ClassNotFoundException {
+        synchronized (queue) {
+            // gc操作比较耗时，此处统计一下执行的消耗的时间
+            long gcBeg = System.currentTimeMillis();
+
+            // 1-创建一个新的文件
+            File queueDataNewFile = new File(getQueueDataNewPath(queue.getName()));
+            if(queueDataNewFile.exists()) {
+                // 正常情况下这个文件是不该存在的，如果存在则说明上一次gc到一半程序意外崩溃了
+                throw new MqException("[MessageFileManager] gc 时发现该队列的 queue_data_new 已经存在！queueName = " + queue.getName());
+            }
+            boolean ok = queueDataNewFile.createNewFile();
+            if(!ok) {
+                throw new MqException("[MessageFileManager] 创建文件失败！queueDataNewFile = " + queueDataNewFile.getAbsolutePath());
+            }
+
+            // 2-从旧的文件中读取出所有的有效消息对象
+            LinkedList<Message> messages = loadAllMessageFromQueue(queue.getName());
+
+            // 3-把有效消息写入到新的文件中
+            try (OutputStream outputStream = new FileOutputStream(queueDataNewFile)) {
+                try (DataOutputStream dataOutputStream = new DataOutputStream(outputStream)) {
+                    for(Message message : messages) {
+                        byte[] buffer = BinaryTool.toBytes(message);
+                        // 先写 4 个字节消息的长度
+                        dataOutputStream.writeInt(buffer.length);
+                        dataOutputStream.write(buffer);
+                    }
+                }
+            }
+
+            // 4-删除旧的数据文件，并把新的数据文件重新命名
+            File queueDataOldFile = new File(getQueueDataPath(queue.getName()));
+            ok = queueDataOldFile.delete();
+            if(!ok) {
+                throw new MqException("[MessageFileManager] 删除旧的数据文件失败！queueDataOldFile = " + queueDataOldFile.getAbsolutePath());
+            }
+
+            // 把 queue_data_new.txt 重命名为 queue_data.txt
+            ok = queueDataNewFile.renameTo(queueDataOldFile);
+            if(!ok) {
+                throw new MqException("[MessageFileManager] 文件重命名失败！queueDataNewFile = "
+                        + queueDataNewFile.getAbsolutePath() + ", queueDataOldFile = " + queueDataOldFile.getAbsolutePath());
+            }
+
+            // 5-更新消息统计文件
+            Stat stat = readStat(queue.getName());
+            stat.totalCount = messages.size();
+            stat.validCount = messages.size();
+            writeStat(queue.getName(), stat);
+
+            long gcEnd = System.currentTimeMillis();
+            System.out.println("[MessageFileManager] gc 执行完毕！queueName = " + queue.getName() +
+                    ", time = " + (gcEnd-gcBeg) + "ms");
+        }
+    }
 }
