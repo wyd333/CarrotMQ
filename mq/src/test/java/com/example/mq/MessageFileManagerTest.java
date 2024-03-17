@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -132,7 +133,130 @@ class MessageFileManagerTest {
         Assertions.assertArrayEquals(message.getBody(), curMessage.getBody());
 
         System.out.println("message: " + curMessage);
+    }
 
+    @Test
+    public void testLoadAllMessageFromQueue() throws IOException, MqException, ClassNotFoundException {
+        // 往队列中插入 100 条消息，然后验证这 100 条消息从文件中读取之后是否和最初一致
+        MSGQueue queue = createTestQueue(queueName1);
+        List<Message> expectedMessages = new LinkedList<>();
+        for (int i = 0; i < 100; i++) {
+            Message message = createTestMessage("testMessage" + i);
+            messageFileManager.sendMessage(queue, message);
+            expectedMessages.add(message);
+        }
 
+        // 读取所有消息
+        LinkedList<Message> actualMessages = messageFileManager.loadAllMessageFromQueue(queueName1);
+        Assertions.assertEquals(expectedMessages.size(), actualMessages.size());
+
+        for (int i = 0; i < expectedMessages.size(); i++) {
+            Message expectedMessage = expectedMessages.get(i);
+            Message actualMessage = actualMessages.get(i);
+            System.out.println("[" + i + "] actualMessage=" + actualMessage);
+
+            Assertions.assertEquals(expectedMessage.getMessageId(), actualMessage.getMessageId());
+            Assertions.assertEquals(expectedMessage.getRoutingKey(), actualMessage.getRoutingKey());
+            Assertions.assertEquals(expectedMessage.getDeliverMode(), actualMessage.getDeliverMode());
+            Assertions.assertArrayEquals(expectedMessage.getBody(), actualMessage.getBody());
+            Assertions.assertEquals(0x1, actualMessage.getIsValid());
+        }
+    }
+
+    /**
+     * 创建队列，写入 10 个消息。删除其中的几个消息，再把所有消息读取出来，判定是否符合预期。
+     * @throws IOException
+     * @throws MqException
+     * @throws ClassNotFoundException
+     */
+    @Test
+    public void testDeleteMessage() throws IOException, MqException, ClassNotFoundException {
+        MSGQueue queue = createTestQueue(queueName1);
+        List<Message> expectedMessages = new LinkedList<>();
+
+        for (int i = 0; i < 10; i++) {
+            Message message = createTestMessage("testMessage" + i);
+            messageFileManager.sendMessage(queue, message);
+            expectedMessages.add(message);
+        }
+
+        // 删除其中的三个消息
+        messageFileManager.deleteMessage(queue, expectedMessages.get(7));
+        messageFileManager.deleteMessage(queue, expectedMessages.get(8));
+        messageFileManager.deleteMessage(queue, expectedMessages.get(9));
+
+        // 对比这里的内容是否正确
+        LinkedList<Message> actualMessages = messageFileManager.loadAllMessageFromQueue(queueName1);
+        Assertions.assertEquals(7, actualMessages.size());  // 先判断元素个数是否符合预期
+
+        for (int i = 0; i < actualMessages.size(); i++) {
+            Message expectedMessage = expectedMessages.get(i);
+            Message actualMessage = actualMessages.get(i);
+            System.out.println("[" + i + "] actualMessage=" + actualMessage);
+
+            Assertions.assertEquals(expectedMessage.getMessageId(), actualMessage.getMessageId());
+            Assertions.assertEquals(expectedMessage.getRoutingKey(), actualMessage.getRoutingKey());
+            Assertions.assertEquals(expectedMessage.getDeliverMode(), actualMessage.getDeliverMode());
+            Assertions.assertArrayEquals(expectedMessage.getBody(), actualMessage.getBody());
+            Assertions.assertEquals(0x1, actualMessage.getIsValid());
+        }
+    }
+
+    /**
+     * 测试垃圾回收
+     * @throws IOException
+     * @throws MqException
+     * @throws ClassNotFoundException
+     */
+    @Test
+    public void testGC() throws IOException, MqException, ClassNotFoundException {
+        // 先往队列中写 100 个消息获取到文件大小
+        // 再把 100 个消息中的一半，都给删除掉（如把下标为偶数的消息都删除）
+        // 再手动调用 gc 方法, 检测得到的新的文件的大小是否比之前缩小了
+        MSGQueue queue = createTestQueue(queueName1);
+        List<Message> expectedMessages = new LinkedList<>();
+
+        for (int i = 0; i < 100; i++) {
+            Message message = createTestMessage("testMessage" + i);
+            messageFileManager.sendMessage(queue, message);
+            expectedMessages.add(message);
+        }
+
+        // 获取 gc 前的文件大小
+        File beforeGCFile = new File("./data/" + queueName1 + "/queue_data.txt");
+        long beforeGCLength = beforeGCFile.length();
+
+        // 删除偶数下标的消息
+        for (int i = 0; i < 100; i += 2) {
+            messageFileManager.deleteMessage(queue, expectedMessages.get(i));
+        }
+
+        // 手动调用 gc
+        messageFileManager.gc(queue);
+
+        // 重新读取文件，验证新的文件的内容是不是和之前的内容匹配
+        LinkedList<Message> actualMessages = messageFileManager.loadAllMessageFromQueue(queueName1);
+        Assertions.assertEquals(50, actualMessages.size());
+        for (int i = 0; i < actualMessages.size(); i++) {
+            // 把之前消息偶数下标的删了，剩下的就是奇数下标的元素了
+            // actual 中的 0 对应 expected 的 1
+            // actual 中的 1 对应 expected 的 3
+            // actual 中的 2 对应 expected 的 5
+            // actual 中的 i 对应 expected 的 2 * i + 1
+            Message expectedMessage = expectedMessages.get(2 * i + 1);
+            Message actualMessage = actualMessages.get(i);
+
+            Assertions.assertEquals(expectedMessage.getMessageId(), actualMessage.getMessageId());
+            Assertions.assertEquals(expectedMessage.getRoutingKey(), actualMessage.getRoutingKey());
+            Assertions.assertEquals(expectedMessage.getDeliverMode(), actualMessage.getDeliverMode());
+            Assertions.assertArrayEquals(expectedMessage.getBody(), actualMessage.getBody());
+            Assertions.assertEquals(0x1, actualMessage.getIsValid());
+        }
+        // 获取新的文件的大小
+        File afterGCFile = new File("./data/" + queueName1 + "/queue_data.txt");
+        long afterGCLength = afterGCFile.length();
+        System.out.println("before: " + beforeGCLength);
+        System.out.println("after: " + afterGCLength);
+        Assertions.assertTrue(beforeGCLength > afterGCLength);
     }
 }
