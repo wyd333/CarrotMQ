@@ -6,6 +6,7 @@ import com.example.mq.mqserver.core.MSGQueue;
 import com.example.mq.mqserver.core.Message;
 
 import java.io.*;
+import java.util.LinkedList;
 import java.util.Scanner;
 
 /**
@@ -202,19 +203,77 @@ public class MessageFileManager {
         // FileInputStream是从文件头开始读写的, 但此处要求随机访问
         // 内存/硬盘是支持随机访问的
         // Java用RandomAccessFile类来随机访问
-        try (RandomAccessFile randomAccessFile = new RandomAccessFile(getQueueDataPath(queue.getName()), "rw")) {
-            // 1-先从文件中读取对应的 Message 数据
-            byte[] bufferSrc = new byte[(int) (message.getOffsetEnd() - message.getOffsetBeg())];
-            randomAccessFile.seek(message.getOffsetBeg());  // 移动光标
-            randomAccessFile.read(bufferSrc);
-            // 2-把当前读出来的二进制数据转换回 Message 对象
-            Message diskMessage = (Message) BinaryTool.fromBytes(bufferSrc);
-            // 3-把 isValid 设置为无效
-            diskMessage.setIsValid((byte) 0x0);
-            // 4-重新写入文件
-            byte[] bufferDest = BinaryTool.toBytes(diskMessage);
-            randomAccessFile.seek(message.getOffsetBeg());  //文件光标会随着读和写移动，此处重新调整光标
-            randomAccessFile.write(bufferDest);
+        synchronized (queue) {
+            try (RandomAccessFile randomAccessFile = new RandomAccessFile(getQueueDataPath(queue.getName()), "rw")) {
+                // 1-先从文件中读取对应的 Message 数据
+                byte[] bufferSrc = new byte[(int) (message.getOffsetEnd() - message.getOffsetBeg())];
+                randomAccessFile.seek(message.getOffsetBeg());  // 移动光标
+                randomAccessFile.read(bufferSrc);
+                // 2-把当前读出来的二进制数据转换回 Message 对象
+                Message diskMessage = (Message) BinaryTool.fromBytes(bufferSrc);
+                // 3-把 isValid 设置为无效
+                // 此处不需要设置内存中 message 的 isValid 为 0 ，因为这个对象马上要在内存中销毁了
+                diskMessage.setIsValid((byte) 0x0);
+                // 4-重新写入文件
+                byte[] bufferDest = BinaryTool.toBytes(diskMessage);
+                randomAccessFile.seek(message.getOffsetBeg());  //文件光标会随着读和写移动，此处重新调整光标
+                randomAccessFile.write(bufferDest);
+                // 通过上述操作，对于文件来说只是有一个字节发生了改变而已
+            }
+            // 更新统计文件，有效消息个数要-1
+            Stat stat = readStat(queue.getName());
+            if (stat.validCount > 0) {
+                stat.validCount--;
+            }
+            writeStat(queue.getName(), stat);
         }
+    }
+
+    /**
+     * 使用这个方法，从文件中读取所有的消息内容，加载到内存中（一个链表里）。
+     * 在程序启动的时候进行调用。
+     * 不用传入queue对象，因为不需要对queue进行加锁操作。该方法只在程序启动的时候调用，不涉及多线程，因此不用加锁
+     * @param queueName
+     * @return 返回一个Linkedlist，主要目的是为了方便后序进行的头删操作
+     */
+    public LinkedList<Message> loadAllMessageFromQueue(String queueName) throws IOException, MqException, ClassNotFoundException {
+        LinkedList<Message> messages = new LinkedList<>();
+        try(InputStream inputStream = new FileInputStream(getQueueDataPath(queueName))) {
+            try(DataInputStream dataInputStream = new DataInputStream(inputStream)) {
+                // 记录当前文件光标
+                long currentOffset = 0;
+                // 一个文件中包含了很多消息，此处要循环读取
+                while(true) {
+                    // 1-读取当前消息的长度，可能会读到文件末尾（EOF），readInt()读到文件末尾会抛EOFException异常，这一点和很多流对象不一样
+                    int messageSize = dataInputStream.readInt();
+                    // 2-按照这个长度，读取消息内容
+                    byte[] buffer = new byte[messageSize];
+                    int actualSize = dataInputStream.read(buffer);
+                    if(messageSize != actualSize) {
+                        // 如果不匹配，说明文件有问题，格式错乱了
+                        throw new MqException("[MessageFileManager] 文件格式错误！queueName = " + queueName);
+                    }
+                    // 3-把读到的二进制数据反序列化为 Message 对象
+                    Message message = (Message) BinaryTool.fromBytes(buffer);
+                    // 4-判定一下这个消息对象是否有效
+                    if(message.getIsValid() != 0x1) {
+                        // 无效数据，更新offset，并跳过
+                        currentOffset += (4 + messageSize);
+                        continue;
+                    }
+                    // 5-有效数据，把message对象加入链表中。加入前填写 offsetBeg 和 offsetEnd
+                    // 进行计算 offset 的时候需要知道当前文件光标的位置。DataInputStream不方便计算，因此要手动计算
+                    message.setOffsetBeg(currentOffset + 4);
+                    message.setOffsetEnd(currentOffset + 4 + messageSize);
+                    currentOffset += (4 + messageSize);
+                    messages.add(message);
+                }
+            } catch (EOFException e) {
+                // 并非处理异常，而是处理正常的业务逻辑，文件读到末尾readInt会抛出异常
+                // catch 中也不需要做什么特殊的事情
+                System.out.println("[MessageFileManager] 恢复 Message 数据完成！");
+            }
+        }
+        return messages;
     }
 }
