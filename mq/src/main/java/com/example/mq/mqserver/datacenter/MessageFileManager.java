@@ -27,6 +27,13 @@ public class MessageFileManager {
     }
 
     /**
+     * 暂时不需要什么额外的初始化操作，以备后续扩展
+     */
+    public void init(){
+
+    }
+
+    /**
      * 预定消息文件所在的目录和文件名，此方法用来获取指定队列对应的消息文件所在路径
      * @param queueName
      * @return
