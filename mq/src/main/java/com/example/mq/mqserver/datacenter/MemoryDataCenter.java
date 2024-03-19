@@ -6,7 +6,9 @@ import com.example.mq.mqserver.core.Exchange;
 import com.example.mq.mqserver.core.MSGQueue;
 import com.example.mq.mqserver.core.Message;
 
+import java.io.IOException;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,7 +35,7 @@ public class MemoryDataCenter {
 
     public void insertExchange(Exchange exchange) {
         exchangeMap.put(exchange.getName(), exchange);
-        System.out.println("[MemoryDataCenter] 新交换机添加成功！exchangeName = " + exchange.getName());
+        System.out.println("[MemoryDataCenter] 新交换机添加成功！exchangeName=" + exchange.getName());
     }
 
     public Exchange getExchange(String exchangeName) {
@@ -127,7 +129,7 @@ public class MemoryDataCenter {
      */
     public void addMessage(Message message) {
         messageMap.put(message.getMessageId(), message);
-        System.out.println("[MemoryDataCenter] 新消息添加成功！messageId = " + message.getMessageId());
+        System.out.println("[MemoryDataCenter] 新消息添加成功！messageId=" + message.getMessageId());
     }
 
 
@@ -146,7 +148,7 @@ public class MemoryDataCenter {
      */
     public void removeMessage(String messageId) {
         messageMap.remove(messageId);
-        System.out.println("[MemoryDataCenter] 消息被移除！messageId = " + messageId);
+        System.out.println("[MemoryDataCenter] 消息被移除！messageId=" + messageId);
     }
 
     /**
@@ -168,7 +170,11 @@ public class MemoryDataCenter {
         System.out.println("[MemoryDataCenter] 消息被投递到队列中! messageId=" + message.getMessageId());
     }
 
-    // 从队列中取消息
+    /**
+     * 从队列中取消息
+     * @param queueName
+     * @return
+     */
     public Message pollMessage(String queueName) {
         // 根据队列名查找一下对应的队列的消息链表
         LinkedList<Message> messages = queueMessageMap.get(queueName);
@@ -187,7 +193,11 @@ public class MemoryDataCenter {
         }
     }
 
-    // 获取指定队列中消息的个数
+    /**
+     * 获取指定队列中消息的个数
+     * @param queueName
+     * @return
+     */
     public int getMessageCount(String queueName) {
         LinkedList<Message> messages = queueMessageMap.get(queueName);
         if (messages == null) {
@@ -198,4 +208,91 @@ public class MemoryDataCenter {
             return messages.size();
         }
     }
+
+    /**
+     * 添加未确认的消息
+     * @param queueName
+     * @param message
+     */
+    public void addMessageWaitAck(String queueName, Message message) {
+        ConcurrentHashMap<String, Message> messageHashMap = queueMessageWaitAckMap.computeIfAbsent(queueName,
+                k -> new ConcurrentHashMap<>());
+        messageHashMap.put(message.getMessageId(), message);
+        System.out.println("[MemoryDataCenter] 消息进入待确认队列! messageId=" + message.getMessageId());
+    }
+
+    /**
+     * 删除未确认的消息(消息已经确认了)
+     * @param queueName
+     * @param messageId
+     */
+    public void removeMessageWaitAck(String queueName, String messageId) {
+        ConcurrentHashMap<String, Message> messageHashMap = queueMessageWaitAckMap.get(queueName);
+        if (messageHashMap == null) {
+            return;
+        }
+        messageHashMap.remove(messageId);
+        System.out.println("[MemoryDataCenter] 消息从待确认队列删除! messageId=" + messageId);
+    }
+
+    /**
+     * 获取指定的未确认的消息
+     * @param queueName
+     * @param messageId
+     * @return
+     */
+    public Message getMessageWaitAck(String queueName, String messageId) {
+        ConcurrentHashMap<String, Message> messageHashMap = queueMessageWaitAckMap.get(queueName);
+        if (messageHashMap == null) {
+            return null;
+        }
+        return messageHashMap.get(messageId);
+    }
+
+
+    /**
+     * 这个方法是从硬盘上读取数据, 把硬盘中之前持久化存储的各个维度的数据都恢复到内存中
+     * @param diskDataCenter
+     * @throws IOException
+     * @throws MqException
+     * @throws ClassNotFoundException
+     */
+    public void recovery(DiskDataCenter diskDataCenter) throws IOException, MqException, ClassNotFoundException {
+        // 0. 清空之前的所有数据
+        exchangeMap.clear();
+        queueMap.clear();
+        bindingsMap.clear();
+        messageMap.clear();
+        queueMessageMap.clear();
+
+        // 1. 恢复所有的交换机数据
+        List<Exchange> exchanges = diskDataCenter.selectAllExchanges();
+        for (Exchange exchange : exchanges) {
+            exchangeMap.put(exchange.getName(), exchange);
+        }
+        // 2. 恢复所有的队列数据
+        List<MSGQueue> queues = diskDataCenter.selectAllQueues();
+        for (MSGQueue queue : queues) {
+            queueMap.put(queue.getName(), queue);
+        }
+        // 3. 恢复所有的绑定数据
+        List<Binding> bindings = diskDataCenter.selectAllBindings();
+        for (Binding binding : bindings) {
+            ConcurrentHashMap<String, Binding> bindingMap = bindingsMap.computeIfAbsent(binding.getExchangeName(),
+                    k -> new ConcurrentHashMap<>());    // 能找到直接返回，找不到就创建一个新的插入再返回
+            bindingMap.put(binding.getQueueName(), binding);
+        }
+        // 4. 恢复所有的消息数据。遍历所有的队列，根据每个队列的名字，获取到所有的消息
+        for (MSGQueue queue : queues) {
+            LinkedList<Message> messages = diskDataCenter.loadAllMessageFromQueue(queue.getName());
+            queueMessageMap.put(queue.getName(), messages);
+            for (Message message : messages) {
+                messageMap.put(message.getMessageId(), message);
+            }
+        }
+        // 针对 “未确认的消息” 这部分内存中的数据，不需要从硬盘恢复。之前考虑硬盘存储的时候也没设定这一块
+        // 一旦在等待 ack 的过程中服务器重启了，此时这些 “未被确认的消息”，就恢复成 “未被取走的消息”
+        // 这个消息在硬盘上存储的时候, 就是当做 “未被取走”
+    }
+
 }
