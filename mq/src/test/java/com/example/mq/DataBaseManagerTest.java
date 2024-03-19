@@ -27,9 +27,7 @@ import java.util.List;
 public class DataBaseManagerTest {
     private DataBaseManager dataBaseManager = new DataBaseManager();
 
-    /**
-     * 准备工作，每个测试用例执行前调用
-     */
+    // 准备工作，每个测试用例执行前调用
     @BeforeEach
     public void setUp(){
         // 在init中通过context对象得到metaMapper实例，所以要先构建出context对象
@@ -38,9 +36,7 @@ public class DataBaseManagerTest {
         dataBaseManager.init();
     }
 
-    /**
-     * 收尾工作，每个用例执行后调用
-     */
+    // 收尾工作，每个用例执行后调用
     @AfterEach
     public void tearDown(){
         // 把数据库清空，把数据库清空（删除meta.db文件）

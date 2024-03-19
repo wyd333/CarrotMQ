@@ -42,9 +42,7 @@ class MessageFileManagerTest {
         messageFileManager.createQueueFiles(queueName2);
     }
 
-    /**
-     * 每个用例执行完毕之后的收尾工作
-     */
+    // 每个用例执行完毕之后的收尾工作
     @AfterEach
     public void tearDown() throws IOException {
         // 收尾阶段，把创建出的队列删除
@@ -82,11 +80,7 @@ class MessageFileManagerTest {
         Assertions.assertEquals(50, newStat.validCount);
     }
 
-    /**
-     * 构造队列对象
-     * @param queueName
-     * @return
-     */
+    // 构造队列对象
     private MSGQueue createTestQueue(String queueName) {
         MSGQueue queue = new MSGQueue();
         queue.setName(queueName);
@@ -96,11 +90,8 @@ class MessageFileManagerTest {
         return queue;
     }
 
-    /**
-     * 构造消息对象
-     * @param content
-     * @return
-     */
+
+    // 构造消息对象
     private Message createTestMessage(String content) {
         Message message = Message.createMessageWithId("testRoutingKey", null, content.getBytes());
         return message;
@@ -163,12 +154,7 @@ class MessageFileManagerTest {
         }
     }
 
-    /**
-     * 创建队列，写入 10 个消息。删除其中的几个消息，再把所有消息读取出来，判定是否符合预期。
-     * @throws IOException
-     * @throws MqException
-     * @throws ClassNotFoundException
-     */
+    // 创建队列，写入 10 个消息。删除其中的几个消息，再把所有消息读取出来，判定是否符合预期。
     @Test
     public void testDeleteMessage() throws IOException, MqException, ClassNotFoundException {
         MSGQueue queue = createTestQueue(queueName1);
@@ -202,12 +188,7 @@ class MessageFileManagerTest {
         }
     }
 
-    /**
-     * 测试垃圾回收
-     * @throws IOException
-     * @throws MqException
-     * @throws ClassNotFoundException
-     */
+    // 测试垃圾回收
     @Test
     public void testGC() throws IOException, MqException, ClassNotFoundException {
         // 先往队列中写 100 个消息获取到文件大小

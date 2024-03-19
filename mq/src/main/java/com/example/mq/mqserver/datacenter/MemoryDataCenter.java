@@ -35,7 +35,7 @@ public class MemoryDataCenter {
 
     public void insertExchange(Exchange exchange) {
         exchangeMap.put(exchange.getName(), exchange);
-        System.out.println("[MemoryDataCenter] 新交换机添加成功！exchangeName=" + exchange.getName());
+        System.out.println("[MemoryDataCenter] 新交换机添加成功! exchangeName=" + exchange.getName());
     }
 
     public Exchange getExchange(String exchangeName) {
