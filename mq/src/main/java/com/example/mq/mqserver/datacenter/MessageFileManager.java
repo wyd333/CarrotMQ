@@ -170,7 +170,7 @@ public class MessageFileManager {
     public void sendMessage(MSGQueue queue, Message message) throws MqException, IOException {
         // 1-检查当前要写入的队列对应的文件是否存在
         if(!checkFilesExists(queue.getName())) {
-            throw new MqException("[MessageFileManager] 队列对应的文件不存在！queueName = " + queue.getName());
+            throw new MqException("[MessageFileManager] 队列对应的文件不存在！queueName=" + queue.getName());
         }
         // 2-把Message对象进行序列化，转成二进制字节数组
         byte[] messageBinary = BinaryTool.toBytes(message);

@@ -58,7 +58,7 @@ public class MemoryDataCenter {
 
     public void deleteQueue(String queueName) {
         queueMap.remove(queueName);
-        System.out.println("[MemoryDataCenter] 队列删除成功！queueName = " + queueName);
+        System.out.println("[MemoryDataCenter] 队列删除成功！queueName=" + queueName);
     }
 
     public void insertBinding(Binding binding) throws MqException {
