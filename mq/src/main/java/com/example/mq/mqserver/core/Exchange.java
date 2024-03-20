@@ -106,4 +106,8 @@ public class Exchange {
     public void setArguments(String key, Object value){
         arguments.put(key, value);
     }
+
+    public void setArguments(Map<String, Object> arguments) {
+        this.arguments = arguments;
+    }
 }
