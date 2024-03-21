@@ -24,6 +24,10 @@ public class VirtualHost {
     private MemoryDataCenter memoryDataCenter = new MemoryDataCenter();
     private DiskDataCenter diskDataCenter = new DiskDataCenter();
 
+    // 操作交换机的锁对象
+    private final Object exchangeLocker = new Object();
+    // 操作队列的锁对象
+    private final Object queueLocker = new Object();
     public String getVirtualHostName() {
         return virtualHostName;
     }
@@ -271,7 +275,8 @@ public class VirtualHost {
                     if (binding == null) {
                         throw new MqException("[VirtualHost] 删除绑定失败! 绑定不存在! exchangeName=" + exchangeName + ", queueName=" + queueName);
                     }
-                    // 2. 无论绑定是否持久化了, 都尝试从硬盘删一下
+
+                    // 2. 无论绑定是否持久化, 都尝试从硬盘删一下
                     // 就算不存在, 这个删除也无副作用
                     diskDataCenter.deleteBinding(binding);
                     // 3. 删除内存的数据
