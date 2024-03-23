@@ -1,11 +1,15 @@
 package com.example.mq.mqserver.core;
 
+import com.example.mq.common.ConsumerEnv;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created with IntelliJ IDEA.
@@ -27,6 +31,36 @@ public class MSGQueue {
     private boolean autoDelete = false;
     //扩展参数，先列在这里，暂时不实现
     private Map<String,Object> arguments = new HashMap<>();
+
+    //当前队列有哪些消费者订阅了
+    private List<ConsumerEnv> consumerEnvList = new ArrayList<>();
+
+    //记录当前取到了第几个消费者, 以实现轮询操作
+    private AtomicInteger consumerSeq = new AtomicInteger(0);
+
+    //添加一个新的订阅者
+    public void addConsumerEnv(ConsumerEnv consumerEnv) {
+        consumerEnvList.add(consumerEnv);
+    }
+
+    //订阅者的删除暂时先不考虑
+
+
+    /**
+     * 挑选一个订阅者来处理当前的消息, 以轮询的方式
+     * @return
+     */
+    public ConsumerEnv chooseConsumer() {
+        if(consumerEnvList.size() == 0) {
+            // 该队列没有消费者订阅
+            return null;
+        }
+
+        // 计算当前要取的元素的下标
+        int index = consumerSeq.get() % consumerEnvList.size();
+        consumerSeq.getAndIncrement();
+        return consumerEnvList.get(index);
+    }
 
     public String getName() {
         return name;

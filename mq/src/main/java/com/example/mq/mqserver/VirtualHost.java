@@ -1,5 +1,6 @@
 package com.example.mq.mqserver;
 
+import com.example.mq.common.Consumer;
 import com.example.mq.common.MqException;
 import com.example.mq.mqserver.core.*;
 import com.example.mq.mqserver.datacenter.DiskDataCenter;
@@ -21,9 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class VirtualHost {
     private String virtualHostName;
-    private Router router = new Router();
     private MemoryDataCenter memoryDataCenter = new MemoryDataCenter();
     private DiskDataCenter diskDataCenter = new DiskDataCenter();
+    private Router router = new Router();
+    private ConsumerManager consumerManager = new ConsumerManager(this);
 
     // 操作交换机的锁对象
     private final Object exchangeLocker = new Object();
@@ -382,6 +384,61 @@ public class VirtualHost {
         memoryDataCenter.sendMessage(queue, message);
 
         // 此处还需要补充一个逻辑, 通知消费者可以消费消息了.
-        //consumerManager.notifyConsume(queue.getName());
+        consumerManager.notifyConsume(queue.getName());
+    }
+
+
+    /**
+     * 订阅消息, 添加一个队列的订阅者, 当队列收到消息之后, 就要把消息推送给对应的订阅者
+     * @param consumerTag 消费者的身份标识
+     * @param queueName 订阅的是哪个队列
+     * @param autoAck 消息被消费完成后应答的方式, 为 true 自动应答, 为 false 手动应答.
+     * @param consumer 回调函数, 此处类型设定成函数式接口, 这样后续调用 basicConsume 并且传实参的时候就可以写作 lambda 样子了
+     * @return
+     */
+    public boolean basicConsume(String consumerTag, String queueName, boolean autoAck, Consumer consumer) {
+        // 构造一个 ConsumerEnv 对象, 把这个对应的队列找到, 再把这个 Consumer 对象添加到该队列中
+        queueName = virtualHostName + queueName;
+        try {
+            consumerManager.addConsumer(consumerTag, queueName, autoAck, consumer);
+            System.out.println("[VirtualHost] basicConsume 成功! queueName=" + queueName);
+            return true;
+        } catch (Exception e) {
+            System.out.println("[VirtualHost] basicConsume 失败! queueName=" + queueName);
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean basicAck(String queueName, String messageId) {
+        queueName = virtualHostName + queueName;
+        try {
+            // 1. 获取到消息和队列
+            Message message = memoryDataCenter.getMessage(messageId);
+            if (message == null) {
+                throw new MqException("[VirtualHost] 要确认的消息不存在! messageId=" + messageId);
+            }
+            MSGQueue queue = memoryDataCenter.getQueue(queueName);
+            if (queue == null) {
+                throw new MqException("[VirtualHost] 要确认的队列不存在! queueName=" + queueName);
+            }
+
+            // 2. 删除硬盘上的数据
+            if (message.getDeliverMode() == 2) {
+                diskDataCenter.deleteMessage(queue, message);
+            }
+            // 3. 删除消息中心中的数据
+            memoryDataCenter.removeMessage(messageId);
+            // 4. 删除待确认的集合中的数据
+            memoryDataCenter.removeMessageWaitAck(queueName, messageId);
+            System.out.println("[VirtualHost] basicAck 成功! 消息被成功确认! queueName=" + queueName
+                    + ", messageId=" + messageId);
+            return true;
+        } catch (Exception e) {
+            System.out.println("[VirtualHost] basicAck 失败! 消息确认失败! queueName=" + queueName
+                    + ", messageId=" + messageId);
+            e.printStackTrace();
+            return false;
+        }
     }
 }
