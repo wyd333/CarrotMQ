@@ -44,7 +44,7 @@ public class BrokerServer {
         try {
             while (runnable) {
                 Socket clientSocket = serverSocket.accept();
-                // 把处理连接的逻辑丢给这个线程池.
+                // 把处理连接的逻辑丢给这个线程池
                 executorService.submit(() -> {
                     processConnection(clientSocket);
                 });
@@ -79,7 +79,7 @@ public class BrokerServer {
             try (DataInputStream dataInputStream = new DataInputStream(inputStream);
                  DataOutputStream dataOutputStream = new DataOutputStream(outputStream)) {
                 while (true) {
-                    // 1. 读取请求并解析.
+                    // 1. 读取请求并解析
                     Request request = readRequest(dataInputStream);
                     // 2. 根据请求计算响应
                     Response response = process(request, clientSocket);
