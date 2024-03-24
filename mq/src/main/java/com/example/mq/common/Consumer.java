@@ -2,6 +2,8 @@ package com.example.mq.common;
 
 import com.example.mq.mqserver.core.BasicProperties;
 
+import java.io.IOException;
+
 /**
  * Created with IntelliJ IDEA.
  * Description: 函数式接口(回调), 收到消息之后要处理消息时要用到的方法
@@ -19,5 +21,5 @@ public interface Consumer {
      * @param basicProperties
      * @param body
      */
-    void handleDelivery(String consumerTag, BasicProperties basicProperties, byte[] body);
+    void handleDelivery(String consumerTag, BasicProperties basicProperties, byte[] body) throws MqException, IOException;
 }
