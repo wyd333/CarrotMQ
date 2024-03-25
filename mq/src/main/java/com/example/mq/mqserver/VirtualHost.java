@@ -146,7 +146,7 @@ public class VirtualHost {
     // 创建队列
     public boolean queueDeclare(String queueName, boolean durable, boolean exclusive, boolean autoDelete,
                                 Map<String, Object> arguments) {
-        // 把队列的名字, 给拼接上虚拟主机的名字.
+        // 把队列的名字, 给拼接上虚拟主机的名字
         queueName = virtualHostName + queueName;
         try {
             synchronized (queueLocker) {
