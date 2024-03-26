@@ -164,7 +164,7 @@ public class MemoryDataCenter {
         synchronized (messages) {
             messages.add(message);
         }
-        // 在这里把该消息也往消息中心中插入一下。假设如果 message 已经在消息中心存在, 重复插入也没关系.
+        // 在这里把该消息也往消息中心中插入一下。假设如果 message 已经在消息中心存在, 重复插入也没关系
         // 相同 messageId, 对应的 message 的内容一定是一样的(服务器代码不会对 Message 内容做修改 basicProperties 和 body)
         addMessage(message);
         System.out.println("[MemoryDataCenter] 消息被投递到队列中! messageId=" + message.getMessageId());

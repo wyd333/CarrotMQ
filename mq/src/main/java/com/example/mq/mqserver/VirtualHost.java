@@ -1,5 +1,6 @@
 package com.example.mq.mqserver;
 
+import com.example.mq.common.Config;
 import com.example.mq.common.Consumer;
 import com.example.mq.common.MqException;
 import com.example.mq.mqserver.core.*;
@@ -9,6 +10,7 @@ import com.example.mq.mqserver.datacenter.MemoryDataCenter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created with IntelliJ IDEA.
@@ -368,6 +370,105 @@ public class VirtualHost {
             System.out.println("[VirtualHost] 消息发送失败!");
             e.printStackTrace();
             return false;
+        }
+    }
+
+    /**
+     * 带自动重试机制的消息发布
+     * @param exchangeName
+     * @param routingKey
+     * @param basicProperties
+     * @param body
+     * @return
+     */
+    public boolean basicPublishWithRetry(String exchangeName, String routingKey, BasicProperties basicProperties, byte[] body) {
+        return retryMessage(exchangeName, routingKey, basicProperties, body, Config.RETRY_COUNT);
+    }
+
+    /**
+     * 消息重试
+     * @param exchangeName
+     * @param routingKey
+     * @param basicProperties
+     * @param body
+     * @param retryCount
+     * @return
+     */
+    private boolean retryMessage(String exchangeName, String routingKey, BasicProperties basicProperties, byte[] body, int retryCount) {
+        try {
+            // 1. 转换交换机的名字
+            exchangeName = virtualHostName + exchangeName;
+
+            // 2. 检查 routingKey 是否合法
+            if (!router.checkRoutingKey(routingKey)) {
+                throw new MqException("[VirtualHost] routingKey 非法! routingKey=" + routingKey);
+            }
+
+            // 3. 查找交换机对象
+            Exchange exchange = memoryDataCenter.getExchange(exchangeName);
+            if (exchange == null) {
+                throw new MqException("[VirtualHost] 交换机不存在! exchangeName=" + exchangeName);
+            }
+
+            // 4. 判定交换机的类型
+            if (exchange.getType() == ExchangeType.DIRECT) {
+                // 按照直接交换机的方式来转发消息
+                // 以 routingKey 作为队列的名字, 直接把消息写入指定的队列中
+                // 此时, 可以无视绑定关系
+                String queueName = virtualHostName + routingKey;
+
+                // 5. 构造消息对象
+                Message message = Message.createMessageWithId(routingKey, basicProperties, body);
+                // 6. 查找该队列名对应的对象
+                MSGQueue queue = memoryDataCenter.getQueue(queueName);
+                if (queue == null) {
+                    throw new MqException("[VirtualHost] 队列不存在! queueName=" + queueName);
+                }
+
+                // 7. 队列存在, 直接给队列中写入消息
+                sendMessage(queue, message);
+            } else {
+                // 按照 fanout 和 topic 的方式来转发.
+                // 5. 找到该交换机关联的所有绑定, 并遍历这些绑定对象
+                ConcurrentHashMap<String, Binding> bindingsMap = memoryDataCenter.getBindings(exchangeName);
+                for (Map.Entry<String, Binding> entry : bindingsMap.entrySet()) {
+                    // 1) 获取到绑定对象, 判定对应的队列是否存在
+                    Binding binding = entry.getValue();
+                    MSGQueue queue = memoryDataCenter.getQueue(binding.getQueueName());
+                    if (queue == null) {
+                        // 此处不抛出异常了, 因为可能此处有多个这样的队列, 希望不要因为一个队列的失败影响到其他队列的消息的传输
+                        System.out.println("[VirtualHost] basicPublish 发送消息时, 发现队列不存在! queueName=" + binding.getQueueName());
+                        continue;
+                    }
+                    // 2) 构造消息对象
+                    Message message = Message.createMessageWithId(routingKey, basicProperties, body);
+                    // 3) 判定这个消息是否能转发给该队列
+                    //    如果是 fanout, 所有绑定的队列都要转发的
+                    //    如果是 topic, 还需要判定下 bindingKey 和 routingKey 是不是匹配
+                    if (!router.route(exchange.getType(), binding, message)) {
+                        continue;
+                    }
+
+                    // 4) 真正转发消息给队列
+                    sendMessage(queue, message);
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            System.out.println("[VirtualHost] 消息发送失败!");
+            e.printStackTrace();
+            if (retryCount < Config.MAX_RETRIES) {
+                System.out.println("Retrying message (" + (retryCount + 1) + "/" + Config.MAX_RETRIES + ")...");
+                try {
+                    TimeUnit.SECONDS.sleep(Config.RETRY_INTERVAL_SECONDS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                return retryMessage(exchangeName, routingKey, basicProperties, body, retryCount + 1);
+            } else {
+                System.out.println("Max retries exceeded. Failed to process message.");
+                return false;
+            }
         }
     }
 
