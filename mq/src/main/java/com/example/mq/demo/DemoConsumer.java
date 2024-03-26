@@ -19,7 +19,7 @@ public class DemoConsumer {
         System.out.println("启动消费者!");
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("127.0.0.1");
-        factory.setPort(9090);
+        factory.setPort(8080);
 
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
