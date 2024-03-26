@@ -6,6 +6,7 @@ import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.LinkedList;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -22,6 +23,7 @@ public class Connection {
     private DataOutputStream dataOutputStream;
 
     private ExecutorService callbackPool = null;
+    private LinkedList<Request> transactionQueue = new LinkedList<>();
 
     public Connection(String host, int port) throws IOException {
         socket = new Socket(host, port);
@@ -134,5 +136,35 @@ public class Connection {
             return null;
         }
         return channel;
+    }
+
+    // 将请求添加到事务队列中
+    public void addToTransactionQueue(Request request) {
+        transactionQueue.add(request);
+    }
+
+    // 提交事务时，将事务队列中的请求发送给服务器
+    public void commitTransaction() throws IOException {
+        // 构造事务请求
+        Request transactionRequest = new Request();
+        transactionRequest.setType(0x10); // 假设0x10代表提交事务
+        transactionRequest.setLength(0);
+        transactionRequest.setPayload(new byte[0]);
+
+        // 发送事务请求
+        writeRequest(transactionRequest);
+
+        // 发送事务队列中的请求
+        for (Request request : transactionQueue) {
+            writeRequest(request);
+        }
+
+        // 清空事务队列
+        transactionQueue.clear();
+    }
+
+    // 回滚事务时，清空事务队列
+    public void rollbackTransaction() {
+        transactionQueue.clear();
     }
 }

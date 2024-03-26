@@ -21,12 +21,15 @@ public class Channel {
     // 此处约定一个 Channel 中只能有一个回调
     private Consumer consumer = null;
 
+    // 增加事务机制
+    private boolean transactional = false;
+
     public Channel(String channelId, Connection connection) {
         this.channelId = channelId;
         this.connection = connection;
     }
 
-    // 在这个方法中, 和服务器进行交互, 告知服务器, 此处客户端创建了新的 channel 了
+    // 在这个方法中和服务器进行交互, 告知服务器此处客户端创建了新的 channel 了
     public boolean createChannel() throws IOException {
         // 对于创建 Channel 操作来说, payload 就是一个 basicArguments 对象
         BasicArguments basicArguments = new BasicArguments();
@@ -44,6 +47,33 @@ public class Channel {
         // 等待服务器的响应
         BasicReturns basicReturns = waitResult(basicArguments.getRid());
         return basicReturns.isOk();
+    }
+
+    // 开启事务
+    public void txSelect() {
+        this.transactional = true;
+    }
+
+    // 提交事务
+    public void txCommit() throws IOException {
+        if (!transactional) {
+            throw new IllegalStateException("Channel is not in transactional mode.");
+        }
+        // 发送提交事务的请求
+        Request request = new Request();
+        request.setType(0x10); // 假设0x10代表提交事务
+        connection.writeRequest(request);
+    }
+
+    // 回滚事务
+    public void txRollback() throws IOException {
+        if (!transactional) {
+            throw new IllegalStateException("Channel is not in transactional mode.");
+        }
+        // 发送回滚事务的请求
+        Request request = new Request();
+        request.setType(0x11); // 假设0x11代表回滚事务
+        connection.writeRequest(request);
     }
 
     // 期望使用这个方法来阻塞等待服务器的响应
@@ -233,7 +263,14 @@ public class Channel {
         request.setLength(payload.length);
         request.setPayload(payload);
 
-        connection.writeRequest(request);
+//        connection.writeRequest(request);
+        if (!transactional) {
+            // 非事务模式直接发送请求
+            connection.writeRequest(request);
+        } else {
+            // 事务模式下将消息放入事务队列
+            connection.addToTransactionQueue(request);
+        }
         BasicReturns basicReturns = waitResult(arguments.getRid());
         return basicReturns.isOk();
     }
