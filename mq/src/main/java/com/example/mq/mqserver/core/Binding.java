@@ -15,7 +15,8 @@ public class Binding {
     private String bindingKey;
 
     //binding是依附于Exchange和queue的
-    //持久化、自动删除等属性也依附于Exchange和queue二者，单独针对binding设置这些属性没有意义
+    //持久化、自动删除等属性也依附于Exchange和queue二者
+    // 单独针对binding设置这些属性没有意义
 
     public String getExchangeName() {
         return exchangeName;

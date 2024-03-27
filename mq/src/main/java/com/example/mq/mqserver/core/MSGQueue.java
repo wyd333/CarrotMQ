@@ -33,6 +33,7 @@ public class MSGQueue {
     private Map<String,Object> arguments = new HashMap<>();
 
     //当前队列有哪些消费者订阅了
+    //消费者名单
     private List<ConsumerEnv> consumerEnvList = new ArrayList<>();
 
     //记录当前取到了第几个消费者, 以实现轮询操作
@@ -47,7 +48,8 @@ public class MSGQueue {
 
 
     /**
-     * 挑选一个订阅者来处理当前的消息, 以轮询的方式
+     * 挑选一个订阅者来处理当前的消息
+     * 以轮询的方式
      * @return
      */
     public ConsumerEnv chooseConsumer() {
@@ -58,7 +60,9 @@ public class MSGQueue {
 
         // 计算当前要取的元素的下标
         int index = consumerSeq.get() % consumerEnvList.size();
+        // 记录订阅者的序号自增
         consumerSeq.getAndIncrement();
+        // 根据下标选取消费者
         return consumerEnvList.get(index);
     }
 
@@ -96,8 +100,8 @@ public class MSGQueue {
 
 
     /**
-     * 把当前的arguments参数从Map转成String(JSON)；
-     * 若代码出现异常，则返回空的json字符串。
+     * 把当前的arguments参数进行序列化
+     * 若代码出现异常则返回空的json字符串
      * @return
      */
     public String getArguments() {
